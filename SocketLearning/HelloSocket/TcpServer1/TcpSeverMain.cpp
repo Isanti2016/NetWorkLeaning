@@ -4,6 +4,8 @@
 #include <windows.h>
 #include <WinSock2.h>
 #include <iostream>
+#include <assert.h>
+#include "../TcpClient1/DataPackage.h"
 
 using namespace std;
 
@@ -74,32 +76,53 @@ int main()
     while (true)
     {
         //5.接收数据
-        char recvBuffer[128] = {};
-        int iRecv = recv( _clientSock, recvBuffer, sizeof(recvBuffer), 0);
+        char recvBuffer[1024] = {};
+        //首次只接DataHeader长度的数据（长度和命令类型），之后再次接收详细数据
+        int iRecv = recv( _clientSock, recvBuffer, sizeof(DataHeader), 0); 
         if (iRecv <= 0)
         {
             cout << "客户端已退出,任务结束." << endl;
             break;
         }
 
-        cout << "收到命令：" << recvBuffer << endl;
+        DataHeader* pHeader = (DataHeader*)recvBuffer;
+        //ASSERT(header != NULL);
 
-        char sendBuffer[128] = {};
-        if ( 0 == strcmp(recvBuffer, "getName") )
+        switch (pHeader->m_cmdType )
         {
-            strcpy_s(sendBuffer, "Xiao Qiang.\n");
-        }
-        else if ( 0 == strcmp(recvBuffer, "Age") )
-        {
-            strcpy_s(sendBuffer, "20.\n");
-        }
-        else
-        {
-            strcpy_s(sendBuffer, "Hello, I'm server!\n");
+            case CMD_LOGIN:
+            {
+                //收到数据recv()，使用数据偏移，再次接收未收完的数据
+                recv(_clientSock, (char*)&recvBuffer + sizeof(DataHeader), pHeader->m_dataLength - sizeof(DataHeader), 0);
+                Login* pRecvlg = (Login*)recvBuffer;
+                cout << "收到命令：CMD_LOGIN, 数据长度：" << pRecvlg->m_dataLength
+                    << ", 用户名：" << pRecvlg->m_userNmae << ", 密码：" << pRecvlg->m_password << endl;
+                //返回，发送数据send()
+                LoginResult sendlg;
+                send(_clientSock, (const char*)(&sendlg), sizeof(LoginResult), 0);
+                break;
+            }
+            case CMD_LOGOUT:
+            {
+                //收到数据recv()，使用数据偏移，再次接收未收完的数据
+                recv(_clientSock, recvBuffer + sizeof(DataHeader), pHeader->m_dataLength - sizeof(DataHeader), 0);
+                Logout* pRecvlg = (Logout*)recvBuffer;
+                cout << "收到命令：CMD_LOGOUT, 数据长度：" << pRecvlg->m_dataLength
+                    << ", 用户名：" << pRecvlg->m_userNmae << endl;
+                //返回，发送数据send()
+                LogoutResult sendlg;
+                send(_clientSock, (const char*)(&sendlg), sizeof(LogoutResult), 0);
+                break;
+            }
+            default:
+            {
+                DataHeader sendHeader;
+                sendHeader.m_cmdType = CMD_ERROR;
+                send(_clientSock, (const char*)&sendHeader, sizeof(DataHeader), 0);
+                break;
+            }
         }
 
-        //6.向客户端发送数据send()
-        send(_clientSock, sendBuffer, strlen(sendBuffer) + 1, 0);
     }
 
     //6.关闭SOCKET

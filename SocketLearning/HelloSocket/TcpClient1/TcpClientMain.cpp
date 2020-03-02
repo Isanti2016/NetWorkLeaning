@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <WinSock2.h>
 #include <iostream>
+#include "DataPackage.h"
 
 using namespace std;
 
@@ -60,23 +61,38 @@ int main()
         {
             break;
         }
+        else if (0 == strcmp(sendBuffer, "login"))
+        {
+            //4.发送数据send()
+            Login sendLg;
+            strcpy(sendLg.m_userNmae, "wbb");
+            strcpy(sendLg.m_password, "wbbmima");
+            send(_client, (const char*)&sendLg, sizeof(Login), 0);
+
+            //5.接收recv()
+            LoginResult recvlg = {};
+            recv(_client, (char*)&recvlg, sizeof(LoginResult), 0);
+            cout << "Login result: " << recvlg.m_iResult << endl;
+
+        }
+        else if (0 == strcmp(sendBuffer, "logout"))
+        {
+            //4.发送数据send()
+            Logout sendLg;
+            strcpy(sendLg.m_userNmae, "wbb");
+            send(_client, (const char*)&sendLg, sizeof(Logout), 0);
+
+            //5.接收recv()
+            LogoutResult recvlg = {};
+            recv(_client, (char*)&recvlg, sizeof(LogoutResult), 0);
+            cout << "Logout result: " << recvlg.m_iResult << endl;
+        }
         else
         {
-            //4.发送数据
-            send(_client, sendBuffer, strlen(sendBuffer) + 1, 0);
-        }
-
-        //5.接收recv()
-        char recvBuffer[256] = {};
-        int iRecv = recv(_client, recvBuffer, sizeof(recvBuffer), 0);
-        if (iRecv > 0 )
-        {
-            cout << "收到数据：" << recvBuffer << endl;
+            cout << "输入命令错误，请重新输入..." << endl;
         }
 
     }
-
-
 
     //6.关闭closesocket()
     closesocket(_client);
